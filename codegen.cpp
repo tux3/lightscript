@@ -38,7 +38,7 @@ Value* CodeGen::codegen(BoolLitExprAST *ast)
 
 Value* CodeGen::codegen(StringLitExprAST *ast)
 {
-    return ConstantDataArray::getString(getGlobalContext(), ast->str, true);
+    return builder.CreateGlobalStringPtr(ast->str, "stringlit");
 }
 Value* CodeGen::codegen(VariableExprAST* ast)
 {
@@ -79,10 +79,18 @@ Value* CodeGen::codegen(CallExprAST *ast)
     if (calleeF->arg_size() != ast->args.size())
         return errorV(("Incorrect number of arguments passed to "+ast->callee).c_str());
 
+    auto it = calleeF->getArgumentList().begin();
     std::vector<Value*> argsV;
     for (unsigned i = 0, e = ast->args.size(); i != e; ++i)
     {
-        argsV.push_back(ast->args[i]->codegen(*this));
+
+        Value* argV = ast->args[i]->codegen(*this);
+        if (argV->getType() != it->getType())
+            return errorV(("Incorrect argument type for argument "
+                           +std::to_string(i+1)+" in function call of "+ast->callee).c_str());
+        else
+            it++;
+        argsV.push_back(argV);
         if (argsV.back() == 0)
             return 0;
     }
@@ -92,7 +100,7 @@ Value* CodeGen::codegen(CallExprAST *ast)
 
 Value* CodeGen::codegen(VoidExprAST*)
 {
-    BasicBlock* target = BasicBlock::Create(getGlobalContext(), "then", builder.GetInsertBlock()->getParent());
+    BasicBlock* target = BasicBlock::Create(getGlobalContext(), "nop", builder.GetInsertBlock()->getParent());
     Value* r = builder.CreateBr(target);
     builder.SetInsertPoint(target);
     return r;

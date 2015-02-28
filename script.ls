@@ -11,7 +11,7 @@ int test(int a, float b, string c, bool d)
 
 int caller() 
 {
-	test(1, 2.5, "abc", 1);
+	test(1, 2.5, "abc", true);
 }
 
 bool init()
