@@ -90,6 +90,14 @@ Value* CodeGen::codegen(CallExprAST *ast)
     return builder.CreateCall(calleeF, argsV, "calltmp");
 }
 
+Value* CodeGen::codegen(VoidExprAST*)
+{
+    BasicBlock* target = BasicBlock::Create(getGlobalContext(), "then", builder.GetInsertBlock()->getParent());
+    Value* r = builder.CreateBr(target);
+    builder.SetInsertPoint(target);
+    return r;
+}
+
 Value* CodeGen::codegen(UnaryExprAST* ast)
 {
     Value *r = ast->rhs->codegen(*this);
@@ -175,9 +183,19 @@ Function* CodeGen::codegen(FunctionAST* ast)
     {
         // Finish off the function.
         if (ast->proto->retType->isVoidTy())
+        {
+            if (retVal && retVal->getType() != Type::getVoidTy(getGlobalContext()))
+                fprintf(stderr, "Warning: Non-void return value in void function '%s'\n", ast->proto->name.c_str());
             builder.CreateRetVoid();
+        }
         else
+        {
+            if (retVal->getType() != ast->proto->retType)
+                return errorF(("Return value type doesn't match"
+                              " function prototype in '"
+                              +ast->proto->name+"'\n").c_str());
             builder.CreateRet(retVal);
+        }
 
         // Validate the generated code, checking for consistency.
         verifyFunction(*function);

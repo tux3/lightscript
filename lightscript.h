@@ -20,7 +20,6 @@ public:
     Lightscript(const std::vector<char>& script);
     ~Lightscript();
 
-    void enableOptimizations(); ///< Call before compiling to enable some LLVM optimizations
     bool compile();
 
 private:

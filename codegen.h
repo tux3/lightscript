@@ -23,6 +23,7 @@ public:
     llvm::Value* codegen(VariableExprAST* ast);
     llvm::Value* codegen(BinaryExprAST *ast);
     llvm::Value* codegen(CallExprAST* ast);
+    llvm::Value* codegen(VoidExprAST* ast);
     llvm::Value* codegen(UnaryExprAST* ast);
     llvm::Value* codegen(SequenceExprAST* ast);
     llvm::Function* codegen(PrototypeAST* ast);

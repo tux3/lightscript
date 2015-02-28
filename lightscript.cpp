@@ -91,11 +91,13 @@ void Lightscript::handleTopLevelExpression()
 
 bool Lightscript::compile()
 {
-    tokenizer.getNextToken();
-    while (1) {
-        switch ((char)tokenizer.getCurToken())
+    char curTok = (char)tokenizer.getNextToken();
+    while (curTok != tok_eof)
+    {
+        curTok = (char)tokenizer.getCurToken();
+        switch (curTok)
         {
-            case tok_eof:       return true;
+            case tok_eof:       break;
             case tok_invalid:   return false;
             case ';':           tokenizer.getNextToken(); break;  // ignore top-level semicolons.
             case tok_int:
@@ -104,17 +106,26 @@ bool Lightscript::compile()
             case tok_bool:
             case tok_void:      handleDefinition(); break;
             case tok_extern:    handleExtern(); break;
-            default:            handleTopLevelExpression(); break;
+            default:            fprintf(stderr, "Code is not allowed outside a function\n"); return false;
         }
+    }
+
+    Type* voidTy = Type::getVoidTy(getGlobalContext());
+    Type* boolTy = Type::getInt1Ty(getGlobalContext());
+    Function* init = jit->getFunction("init");
+    if (!init || init->getReturnType() != boolTy
+            || init->getArgumentList().size())
+    {
+        fprintf(stderr, "Script must have an init function of the form 'bool init()'\n");
+        return false;
+    }
+    Function* exit = jit->getFunction("exit");
+    if (!exit || exit->getReturnType() != voidTy
+            || exit->getArgumentList().size())
+    {
+        fprintf(stderr, "Script must have an exit function of the form 'void exit()'\n");
+        return false;
     }
 
     return true;
 }
-
-void Lightscript::enableOptimizations()
-{
-    if (optimize)
-        return;
-    optimize = true;
-}
-

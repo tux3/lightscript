@@ -58,6 +58,11 @@ Value* CallExprAST::codegen(CodeGen &gen)
     return gen.codegen(this);
 }
 
+Value* VoidExprAST::codegen(CodeGen &gen)
+{
+    return gen.codegen(this);
+}
+
 Value* UnaryExprAST::codegen(CodeGen &gen)
 {
     return gen.codegen(this);
@@ -173,6 +178,7 @@ ExprAST* ASTParser::parsePrimary()
     case '(':                return parseParenExpr();
     case '+':
     case '-':                return parseUnaryExpr();
+    case '}':                return new VoidExprAST;
     }
 }
 

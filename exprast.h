@@ -70,6 +70,15 @@ public:
     friend class CodeGen;
 };
 
+/// UnaryExprAST - Expression class for a void value
+class VoidExprAST : public ExprAST {
+public:
+    VoidExprAST() {}
+
+    virtual llvm::Value* codegen(CodeGen& gen);
+    friend class CodeGen;
+};
+
 /// UnaryExprAST - Expression class for a unary operator.
 class UnaryExprAST : public ExprAST {
     char op;

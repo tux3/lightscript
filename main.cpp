@@ -12,7 +12,6 @@ int main()
         f.close();
 
     Lightscript script{data};
-    script.enableOptimizations();
     script.compile();
     return 0;
 }
