@@ -86,6 +86,9 @@ Token Tokenizer::readNextToken(TokenData &data, size_t& pos, size_t &line) const
       else if (data.identifier == "false") return tok_false;
       else if (data.identifier == "void") return tok_void;
       else if (data.identifier == "extern") return tok_extern;
+      else if (data.identifier == "if") return tok_if;
+      else if (data.identifier == "then") return tok_then;
+      else if (data.identifier == "else") return tok_else;
       else return tok_identifier;
     }
 

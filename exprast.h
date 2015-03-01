@@ -126,6 +126,17 @@ public:
     friend class CodeGen;
 };
 
+/// IfExprAST - Expression class for if/then/else.
+class IfExprAST : public ExprAST {
+  ExprAST *condAST, *thenAST, *elseAST;
+public:
+  IfExprAST(ExprAST *Cond, ExprAST *Then, ExprAST *Else)
+    : condAST(Cond), thenAST(Then), elseAST(Else) {}
+
+  virtual llvm::Value* codegen(CodeGen& gen);
+  friend class CodeGen;
+};
+
 /// PrototypeAST - This class represents the "prototype" for a function,
 /// which captures its name, and its argument names (thus implicitly the number
 /// of arguments the function takes).
@@ -170,6 +181,8 @@ public:
     ExprAST* parsePrimary();
     ExprAST* parseExpression();
     ExprAST* parseBinOpRHS(int exprPrec, ExprAST *lhs);
+    ExprAST* parseIfExpr();
+    ExprAST* parseBlock();
     PrototypeAST* parsePrototype();
     FunctionAST* parseDefinition();
     PrototypeAST* parseExtern();

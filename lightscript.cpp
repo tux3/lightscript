@@ -127,5 +127,11 @@ bool Lightscript::compile()
         return false;
     }
 
+    bool (*initPtr)() = (bool(*)())jit->getPointerToFunction(init);
+    if (initPtr())
+        fprintf(stderr, "Init successful\n");
+    else
+        fprintf(stderr, "Init failed\n");
+
     return true;
 }

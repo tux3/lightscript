@@ -26,6 +26,7 @@ public:
     llvm::Value* codegen(VoidExprAST* ast);
     llvm::Value* codegen(UnaryExprAST* ast);
     llvm::Value* codegen(SequenceExprAST* ast);
+    llvm::Value* codegen(IfExprAST* ast);
     llvm::Function* codegen(PrototypeAST* ast);
     llvm::Function* codegen(FunctionAST* ast);
 

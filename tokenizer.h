@@ -28,6 +28,10 @@ enum Token : char
     tok_void = -14,
 
     tok_extern = -20,
+
+    tok_if = -30,
+    tok_then = -31,
+    tok_else = -32,
 };
 
 struct TokenData

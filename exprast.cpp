@@ -6,7 +6,7 @@
 using namespace llvm;
 
 /// Error* - These are little helper functions for error handling.
-ExprAST *ASTParser::error(const char *str) { fprintf(stderr, "Error on line %d: %s\n", tokenizer.getCurLine(), str);return 0;}
+ExprAST *ASTParser::error(const char *str) { fprintf(stderr, "Error on line %li: %s\n", tokenizer.getCurLine(), str);return 0;}
 PrototypeAST *ASTParser::errorP(const char *str) { error(str); return 0; }
 FunctionAST *ASTParser::errorF(const char *str) { error(str); return 0; }
 
@@ -69,6 +69,11 @@ Value* UnaryExprAST::codegen(CodeGen &gen)
 }
 
 Value* SequenceExprAST::codegen(CodeGen &gen)
+{
+    return gen.codegen(this);
+}
+
+Value* IfExprAST::codegen(CodeGen &gen)
 {
     return gen.codegen(this);
 }
@@ -175,6 +180,7 @@ ExprAST* ASTParser::parsePrimary()
     case tok_string_literal: return parseStringLitExpr();
     case tok_false:
     case tok_true:           return parseBoolLitExpr();
+    case tok_if:             return parseIfExpr();
     case '(':                return parseParenExpr();
     case '+':
     case '-':                return parseUnaryExpr();
@@ -247,6 +253,32 @@ ExprAST* ASTParser::parseBinOpRHS(int exprPrec, ExprAST *lhs)
     }
 }
 
+/// ifexpr ::= 'if' expression 'then' expression 'else' expression
+ExprAST* ASTParser::parseIfExpr()
+{
+    tokenizer.getNextToken();  // eat the if.
+
+    // condition.
+    ExprAST *condAST = parseExpression();
+    if (!condAST)
+    return error("Invalid if expression");
+
+    ExprAST *thenAST = parseBlock();
+    if (thenAST == 0)
+    return error("Invalid then expression");
+
+    if (tokenizer.getCurToken() != tok_else)
+        return new IfExprAST(condAST, thenAST, new VoidExprAST);
+    else
+        tokenizer.getNextToken();
+
+    ExprAST *elseAST = parseBlock();
+    if (!elseAST)
+        return error("Invalid else expression");
+
+    return new IfExprAST(condAST, thenAST, elseAST);
+}
+
 /// prototype
 ///   ::= id '(' id* ')'
 PrototypeAST* ASTParser::parsePrototype()
@@ -308,6 +340,32 @@ PrototypeAST* ASTParser::parsePrototype()
     return new PrototypeAST(retType, fnName, argTypes, argNames);
 }
 
+/// definition ::= '{ expression* '}'
+ExprAST* ASTParser::parseBlock()
+{
+    if ((char)tokenizer.getCurToken() != '{')
+        return error("Expected a { as a start of block");
+    else
+        tokenizer.getNextToken();
+
+    ExprAST* expr = parseExpression();
+    if (!expr)
+        return error("Expected expression in block");
+    while (1)
+    {
+        if ((char)tokenizer.getCurToken() == '}')
+        {
+            tokenizer.getNextToken();
+            return expr;
+        }
+
+        ExprAST* nextExpr = parseExpression();
+        if (!nextExpr)
+            return error("Expected expression in block");
+        expr = new SequenceExprAST(expr, nextExpr);
+    }
+}
+
 /// definition ::= prototype expression
 FunctionAST* ASTParser::parseDefinition()
 {
@@ -325,7 +383,7 @@ FunctionAST* ASTParser::parseDefinition()
         return 0;
     while (1)
     {
-        if (tokenizer.getCurToken() == '}')
+        if ((char)tokenizer.getCurToken() == '}')
         {
             tokenizer.getNextToken();
             return new FunctionAST(proto, body);
@@ -355,5 +413,5 @@ FunctionAST* ASTParser::parseTopLevelExpr()
         PrototypeAST *proto = new PrototypeAST(Type::getVoidTy(getGlobalContext()), "", {}, {});
         return new FunctionAST(proto, e);
     }
-    return 0;
+    return 0;  
 }

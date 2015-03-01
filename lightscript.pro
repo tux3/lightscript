@@ -1,7 +1,6 @@
 TEMPLATE = app
 CONFIG += console c++11
-CONFIG -= app_bundle
-CONFIG -= qt
+CONFIG -= qt app_bundle
 
 SOURCES += main.cpp \
     lightscript.cpp \
@@ -21,4 +20,4 @@ HEADERS += \
     mcjithelper.h
 
 QMAKE_CXXFLAGS += $$system(llvm-config --cxxflags)
-LIBS += $$system(llvm-config --ldflags --system-libs --libs core mcjit native)
+LIBS += $$system(llvm-config --ldflags --system-libs --libs core mcjit native ipo)

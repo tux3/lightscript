@@ -54,17 +54,54 @@ Value* CodeGen::codegen(BinaryExprAST* ast)
     if (l == 0 || r == 0)
         return 0;
 
+    // Perform type casts if necessary
+    Type *intType = builder.getInt64Ty(),
+            *floatType = builder.getDoubleTy(),
+            *boolType = builder.getInt1Ty(),
+            *stringType = builder.getInt8PtrTy();
+
+    if (l->getType() != r->getType())
+    {
+        if (l->getType() == stringType || r->getType() == stringType)
+            return errorV("Invalid binary expression,  no cast from or to 'string' exists");
+        else if (l->getType() == floatType)
+            r = builder.CreateUIToFP(r, floatType, "casttmp");
+        else if (r->getType() == floatType)
+            l = builder.CreateUIToFP(l, floatType, "casttmp");
+    }
+
     switch (ast->op)
     {
-        case '+': return builder.CreateFAdd(l, r, "addtmp");
-        case '-': return builder.CreateFSub(l, r, "subtmp");
-        case '*': return builder.CreateFMul(l, r, "multmp");
+        case '+':
+            if (l->getType() == floatType)
+                return builder.CreateFAdd(l, r, "addtmp");
+            else if (l->getType() == intType || l->getType() == boolType)
+                return builder.CreateAdd(l, r, "addtmp");
+            else
+                return errorV("Internal error in CodeGen::codegen(BinaryExprAST*)");
+        case '-':
+            if (l->getType() == floatType)
+                return builder.CreateFSub(l, r, "subtmp");
+            else if (l->getType() == intType || l->getType() == boolType)
+                return builder.CreateSub(l, r, "subtmp");
+            else
+                return errorV("Internal error in CodeGen::codegen(BinaryExprAST*)");
+        case '*':
+            if (l->getType() == floatType)
+                return builder.CreateFMul(l, r, "multmp");
+            else if (l->getType() == intType || l->getType() == boolType)
+                return builder.CreateMul(l, r, "multmp");
+            else
+                return errorV("Internal error in CodeGen::codegen(BinaryExprAST*)");
         case '<':
-            l = builder.CreateFCmpULT(l, r, "cmptmp");
-            // Convert bool 0/1 to double 0.0 or 1.0
-            return builder.CreateUIToFP(l, Type::getDoubleTy(getGlobalContext()),
-                                        "booltmp");
-        default: return errorV("invalid binary operator");
+            if (l->getType() == floatType)
+                builder.CreateFCmpULT(l, r, "cmptmp");
+            else if (l->getType() == intType || l->getType() == boolType)
+                return builder.CreateICmpSLT(l, r, "cmptmp");
+            else
+                return errorV("Internal error in CodeGen::codegen(BinaryExprAST*)");
+        default:
+            return errorV("invalid binary operator");
     }
 }
 
@@ -128,6 +165,82 @@ Value* CodeGen::codegen(SequenceExprAST* ast)
         return 0;
 
     return r;
+}
+
+Value* CodeGen::codegen(IfExprAST* ast)
+{
+    Value *condV = ast->condAST->codegen(*this);
+    if (condV == 0)
+        return 0;
+
+    if (condV->getType() == Type::getDoubleTy(getGlobalContext()))
+    {
+        // Convert condition to a bool by comparing equal to 0.0.
+        condV = builder.CreateFCmpONE(condV,
+                        ConstantFP::get(getGlobalContext(), APFloat(0.0)),
+                        "ifcond");
+    }
+    else if (condV->getType() == Type::getInt64Ty(getGlobalContext()))
+    {
+        // Convert condition to a bool by comparing equal to 0.
+        condV = builder.CreateICmpNE(condV,
+                        builder.getInt64(0),
+                        "ifcond");
+    }
+    else if (condV->getType() == Type::getInt1Ty(getGlobalContext()))
+    {
+        // It's already a bool
+    }
+    else
+    {
+        return errorV("Expression in if must be an int, float, or bool");
+    }
+
+    Function *function = builder.GetInsertBlock()->getParent();
+
+    // Create blocks for the then and else cases.  Insert the 'then' block at the
+    // end of the function.
+    BasicBlock *thenBB = BasicBlock::Create(getGlobalContext(), "then", function);
+    BasicBlock *elseBB = BasicBlock::Create(getGlobalContext(), "else");
+    BasicBlock *mergeBB = BasicBlock::Create(getGlobalContext(), "ifcont");
+
+    builder.CreateCondBr(condV, thenBB, elseBB);
+
+    // Emit then value.
+    builder.SetInsertPoint(thenBB);
+
+    Value *thenV = ast->thenAST->codegen(*this);
+    if (thenV == 0)
+        return 0;
+
+    builder.CreateBr(mergeBB);
+    // Codegen of 'thenAST' can change the current block, update thenBB for the PHI.
+    thenBB = builder.GetInsertBlock();
+
+    // Emit else block.
+    function->getBasicBlockList().push_back(elseBB);
+    builder.SetInsertPoint(elseBB);
+
+    Value *elseV = ast->elseAST->codegen(*this);
+    if (elseV == 0)
+        return 0;
+
+    builder.CreateBr(mergeBB);
+    // Codegen of 'elseAST' can change the current block, update elseBB for the PHI.
+    elseBB = builder.GetInsertBlock();
+
+    if (thenV->getType() != elseV->getType())
+        return errorV("The 'then' and 'else' expressions must return the same type");
+
+    // Emit merge block.
+    function->getBasicBlockList().push_back(mergeBB);
+    builder.SetInsertPoint(mergeBB);
+    PHINode *pn = builder.CreatePHI(thenV->getType(),
+                                    2, "iftmp");
+
+    pn->addIncoming(thenV, thenBB);
+    pn->addIncoming(elseV, elseBB);
+    return pn;
 }
 
 Function* CodeGen::codegen(PrototypeAST* ast)
